@@ -5,18 +5,17 @@ import sys
 if os.name != 'posix':
     sys.exit('platform not supported')
 import curses
-import os
 from operator import itemgetter
 from indexer import Index
 import logging
+import os
+import sys
+import pyperclip
+import argparse
 
 index = Index()
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
-hdlr = logging.FileHandler('hst.log')
-logger.addHandler(hdlr)
 
 def print_line(line, highlight=False):
     """A thin wrapper around curses's addstr()."""
@@ -24,7 +23,7 @@ def print_line(line, highlight=False):
     try:
         if highlight:
             line += " " * (win.getmaxyx()[1] - len(line))
-            win.addstr(lineno, 0, line, curses.A_REVERSE)
+            win.addstr(lineno, 0, line, curses.color_pair(1))
         else:
             win.addstr(lineno, 0, line, 0)
     except curses.error:
@@ -36,6 +35,11 @@ def print_line(line, highlight=False):
 
 def print_header(title):
     print_line("> %s" % title)
+
+
+def print_footer(s):
+    y, x = win.getmaxyx()
+    win.addstr(y-1, 0, s.ljust(x), curses.color_pair(1))
 
 last_search_text = ''
 last_lines = []
@@ -75,7 +79,6 @@ def refresh_window(pressed_key=None):
 
     print_header(search_txt)
 
-
     lines = which_lines(search_txt)
 
     if not lines:
@@ -93,11 +96,12 @@ def refresh_window(pressed_key=None):
             else:
                 line = "> %s" % p[1]
         except:
-            raise
-        try:
-            print_line(line, highlight=selected)
-        except curses.error:
-            break
+            logger.exception("exception in adding line %s", p)
+        else:
+            try:
+                print_line(line, highlight=selected)
+            except curses.error:
+                break
     try:
 
         if mode == 'SEARCH':
@@ -105,15 +109,33 @@ def refresh_window(pressed_key=None):
         elif mode == 'SELECT':
             s = 'use arrows to select | [ESC] to search | [c] copy | [e] edit | [ENTER] run | [q] quit'
 
-        print_line("[%s] %s" % (mode, s), highlight=True)
+        print_footer("[%s] %s" % (mode, s))
     except curses.error:
         pass
-    win.refresh()
+    # win.refresh()
 
 lines = []
 def load_history():
     global lines
-    f = open('history.txt')
+    from subprocess import Popen, PIPE, STDOUT
+    shell_command = 'bash -i -c "history -r; history"'
+    event = Popen(shell_command, shell=True, stdin=PIPE, stdout=PIPE, 
+        stderr=STDOUT)
+
+    output = event.communicate()
+    lines = output[0].split('\n')
+    for line in lines:
+        try:
+            l = ' '.join(line.split(' ')[1:])
+            l = unicode(l, encoding='utf8')
+            index.add(l)
+        except:
+            print ">>>", line
+            raise
+
+def load_file(filename='history.txt'):
+    global lines
+    f = open(filename)
     lines = f.readlines()
 
     for line in lines:
@@ -147,28 +169,12 @@ shorter_esc_delay()
 lineno = 0
 selected_lineno = 0
 search_txt = ''
-
-
-import os
-import sys
-import time
-import pyperclip
-
 mode = 'SEARCH'
 do_print = False
 do_debug = False
 
 def main():
     global selected_lineno, search_txt, win, last_lines, mode, do_print, do_debug
-
-
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-o", "--out", type=str,
-                    help="output to file")
-    parser.add_argument("-d", "--debug",
-                    help="debug mode - shows scores etc.")
-    args = parser.parse_args()
 
     if args.debug:
         do_debug = True
@@ -180,15 +186,18 @@ def main():
             if not stdin_line:
                 break
     else:
-        load_history()
-
-
+        if args.input:
+            load_file(args.input)
+        else:
+            load_history()
     # os.dup2(3, 0)
     f=open("/dev/tty")
     os.dup2(f.fileno(), 0)
 
-
     win = curses.initscr()
+    curses.start_color()
+
+    curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLUE)
     win.timeout(-1)
     win.keypad(1)
     curses.endwin()
@@ -199,6 +208,7 @@ def main():
     logger.debug("lastlines %s", last_lines)
 
     try:
+        logger.debug("colors: %s", curses.COLORS)
         refresh_window("")
 
         while True:
@@ -244,6 +254,7 @@ def main():
                 elif char == ord('c'):
                     logger.info("selected - %s %s",  selected_lineno, last_lines[selected_lineno])
                     pyperclip.copy(last_lines[selected_lineno][1])
+                    break
                 elif char == curses.KEY_ENTER or char==10 or char==13: # linefeed, enter carriage return all same imho
                     pass
                 elif char == 127:
@@ -279,4 +290,19 @@ def main():
             print last_lines[selected_lineno][1]
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-o", "--out", type=str,
+                    help="output to file")
+    parser.add_argument("-d", "--debug",
+                    help="debug mode - shows scores etc.")
+    parser.add_argument("-i", "--input",
+                    help="input file")
+    args = parser.parse_args()
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        hdlr = logging.FileHandler('hst.log')
+        logger.addHandler(hdlr)
+    else:
+        logger.setLevel(logging.CRITICAL)
     main()

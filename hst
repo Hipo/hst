@@ -1,6 +1,6 @@
 #!/bin/bash
 f="/tmp/$$-command.hst"
-python hst.py --out=$f -d 1
+python hst.py --out=$f "$@"
 if [[ $? != 0 ]]; then exit $?; fi
 if [ -f "$f" ]
 then
