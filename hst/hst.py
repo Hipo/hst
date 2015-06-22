@@ -74,7 +74,7 @@ def refresh_window(pressed_key=None):
     if pressed_key:
         search_txt += pressed_key
 
-    curses.endwin()
+    # curses.endwin()
     win.erase()
 
     print_header(search_txt)
@@ -112,7 +112,7 @@ def refresh_window(pressed_key=None):
         print_footer("[%s] %s" % (mode, s))
     except curses.error:
         pass
-    # win.refresh()
+    win.refresh()
 
 lines = []
 def load_history():
@@ -190,7 +190,6 @@ def main():
             load_file(args.input)
         else:
             load_history()
-    # os.dup2(3, 0)
     f=open("/dev/tty")
     os.dup2(f.fileno(), 0)
 
@@ -200,7 +199,7 @@ def main():
     curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLUE)
     win.timeout(-1)
     win.keypad(1)
-    curses.endwin()
+    # curses.endwin()
 
     max_y, max_x = get_max_viewport()
 

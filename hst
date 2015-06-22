@@ -1,9 +1,0 @@
-#!/bin/bash
-f="/tmp/$$-command.hst"
-python hst.py --out=$f "$@"
-if [[ $? != 0 ]]; then exit $?; fi
-if [ -f "$f" ]
-then
-    #cat $f
-    $SHELL -i $f < /dev/tty
-fi
