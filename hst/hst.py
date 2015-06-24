@@ -173,6 +173,17 @@ mode = 'SEARCH'
 do_print = False
 do_debug = False
 
+
+class Picker(object):
+    def __init__(self, loader):
+        self.loader = loader
+        self.lines = []
+
+    def load_lines(self):
+        self.lines = []
+
+
+
 def main():
     global selected_lineno, search_txt, win, last_lines, mode, do_print, do_debug
 

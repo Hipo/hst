@@ -200,20 +200,20 @@ def tokenize(s):
 
 if __name__ == '__main__':
     print tokenize("ssh -i app1.moment.com -- echo 'hello world'")
-    # words = set()
-    # for line in open('history.txt').readlines():
-    #     ws = line.strip().lower().decode('utf-8').split(' ')
-    #     for w in ws:
-    #         words.add(w)
-    # words = list(words)
-    # words.sort()
-    # print len(words)
+    words = set()
+    for line in open('history.txt').readlines():
+        ws = line.strip().lower().decode('utf-8').split(' ')
+        for w in ws:
+            words.add(w)
+    words = list(words)
+    words.sort()
+    print len(words)
 
-    # m = Matcher(words)
-    # import time
-    # t1 = time.time()
-    # print list(find_all_matches('momnt', 2, m))
-    # print ">>", time.time() - t1
-    # t1 = time.time()
-    # print list(find_all_matches('ssh', 1, m))
-    # print ">>", time.time() - t1
+    m = Matcher(words)
+    import time
+    t1 = time.time()
+    print list(find_all_matches('momnt', 2, m))
+    print ">>", time.time() - t1
+    t1 = time.time()
+    print list(find_all_matches('ssh', 1, m))
+    print ">>", time.time() - t1
