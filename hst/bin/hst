@@ -1,0 +1,24 @@
+#!/bin/bash
+f="/tmp/$$-command.hst"
+# we install via pip so the python we use is, resolve $SOURCE until the file is no longer a symlink
+# so one can symlink to /usr/local/bin etc...
+# stolen from https://github.com/facebook/PathPicker/blob/master/fpp
+SOURCE=$0
+# resolve $SOURCE until the file is no longer a symlink
+while [ -h "$SOURCE" ]; do
+  BASEDIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  # if $SOURCE was a relative symlink, we need to resolve it relative to
+  # the path where the symlink file was located
+  [[ $SOURCE != /* ]] && SOURCE="$BASEDIR/$SOURCE"
+done
+BASEDIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+
+hstpy="$($BASEDIR/python -c 'from hst import hst; print hst.__file__.replace(".pyc", ".py")')"
+$BASEDIR/python $hstpy --out=$f "$@"
+if [[ $? != 0 ]]; then exit $?; fi
+if [ -f "$f" ]
+then
+    #cat $f
+    $SHELL -i $f < /dev/tty
+fi

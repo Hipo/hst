@@ -13,149 +13,65 @@ import sys
 import pyperclip
 import argparse
 
-index = Index()
-
 logger = logging.getLogger(__name__)
 
-def print_line(line, highlight=False):
-    """A thin wrapper around curses's addstr()."""
-    global lineno
-    try:
-        if highlight:
-            line += " " * (win.getmaxyx()[1] - len(line))
-            win.addstr(lineno, 0, line, curses.color_pair(1))
-        else:
-            win.addstr(lineno, 0, line, 0)
-    except curses.error:
-        lineno = 0
-        win.refresh()
-        raise
-    else:
-        lineno += 1
+class Loader(object):
+    def load(self):
+        raise "Override me please"
 
-def print_header(title):
-    print_line("> %s" % title)
+class HistoryLoader(Loader):
+    def load(self):
+        from subprocess import Popen, PIPE, STDOUT
+        shell_command = 'bash -i -c "history -r; history"'
+        event = Popen(shell_command, shell=True, stdin=PIPE, stdout=PIPE,
+            stderr=STDOUT)
 
-
-def print_footer(s):
-    y, x = win.getmaxyx()
-    win.addstr(y-1, 0, s.ljust(x), curses.color_pair(1))
-
-last_search_text = ''
-last_lines = []
-
-def get_max_viewport():
-    max_y, max_x = win.getmaxyx()
-    return (max_y - 3, max_x)
-
-def which_lines(txt):
-    global last_search_text, last_lines
-    if not txt:
-        max_y, max_x = get_max_viewport()
-        return [(0, n) for n in last_lines[0:max_y]]
-    if last_search_text == txt:
-        return last_lines
-    last_search_text = txt
-    import time
-    t1 = time.time()
-    ret = index.find(txt)
-
-    logger.debug(">>> %s", time.time() - t1)
-
-    t1 = time.time()
-    ret = sorted(ret, key=itemgetter(0), reverse=True)
-    logger.debug(">>> sort >>> %s", time.time() - t1)
-    last_lines = ret
-    return ret
-
-def refresh_window(pressed_key=None):
-    global search_txt, lineno, mode, do_debug
-    lineno = 0
-    if pressed_key:
-        search_txt += pressed_key
-
-    # curses.endwin()
-    win.erase()
-
-    print_header(search_txt)
-
-    lines = which_lines(search_txt)
-
-    if not lines:
-        print_line("Results [%s]" % index.size(), highlight=True)
-        return
-    else:
-        print_line("Results - [%s]" % len(lines), highlight=True)
-
-    max_y, max_x = get_max_viewport()
-    for i, p in enumerate(lines[0:max_y]):
-        selected = selected_lineno == i
-        try:
-            if do_debug:
-                line = "> (%s) %s" % p
-            else:
-                line = "> %s" % p[1]
-        except:
-            logger.exception("exception in adding line %s", p)
-        else:
+        output = event.communicate()
+        lines = output[0].split('\n')
+        ret = []
+        for line in lines:
             try:
-                print_line(line, highlight=selected)
-            except curses.error:
-                break
-    try:
+                l = ' '.join(line.split(' ')[1:])
+                l = unicode(l, encoding='utf8')
+                ret.append(l)
+            except:
+                print ">>>", line
+                raise
+        return ret
 
-        if mode == 'SEARCH':
-            s = 'type something to search | [ESC] to select'
-        elif mode == 'SELECT':
-            s = 'use arrows to select | [ESC] to search | [c] copy | [e] edit | [ENTER] run | [q] quit'
+class FileLoader(Loader):
+    def __init__(self, filename='history.txt'):
+        self.filename = filename
 
-        print_footer("[%s] %s" % (mode, s))
-    except curses.error:
-        pass
-    win.refresh()
+    def load(self):
+        f = open(self.filename)
+        lines = f.readlines()
+        ret = []
+        for line in lines:
+            try:
+                l = ' '.join(line.split(' ')[1:])
+                l = unicode(l, encoding='utf8')
+                ret.append(l)
+            except:
+                print ">>>", line
+                raise
+        return ret
 
-lines = []
-def load_history():
-    global lines
-    from subprocess import Popen, PIPE, STDOUT
-    shell_command = 'bash -i -c "history -r; history"'
-    event = Popen(shell_command, shell=True, stdin=PIPE, stdout=PIPE, 
-        stderr=STDOUT)
+class LineLoader(object):
+    def __init__(self, lines):
+        self.lines = lines
 
-    output = event.communicate()
-    lines = output[0].split('\n')
-    for line in lines:
-        try:
-            l = ' '.join(line.split(' ')[1:])
-            l = unicode(l, encoding='utf8')
-            index.add(l)
-        except:
-            print ">>>", line
-            raise
-
-def load_file(filename='history.txt'):
-    global lines
-    f = open(filename)
-    lines = f.readlines()
-
-    for line in lines:
-        try:
-            l = ' '.join(line.split(' ')[1:])
-            l = unicode(l, encoding='utf8')
-            index.add(l)
-        except:
-            print ">>>", line
-            raise
-
-def load_lines(lines):
-    for line in lines:
-        try:
-            l = ' '.join(line.split(' ')[1:])
-            l = unicode(l, encoding='utf8')
-            index.add(l)
-        except:
-            print ">>>", line
-            raise
+    def load(self):
+        ret = []
+        for line in self.lines:
+            try:
+                l = ' '.join(line.split(' ')[1:])
+                l = unicode(l, encoding='utf8')
+                ret.append(l)
+            except:
+                print ">>>", line
+                raise
+        return ret
 
 
 def shorter_esc_delay():
@@ -164,140 +80,251 @@ def shorter_esc_delay():
     except KeyError:
         os.environ['ESCDELAY'] = '25'
 
-shorter_esc_delay()
-
-lineno = 0
-selected_lineno = 0
-search_txt = ''
-mode = 'SEARCH'
-do_print = False
-do_debug = False
-
-
 class Picker(object):
-    def __init__(self, loader):
+    def __init__(self, loader=None):
         self.loader = loader
         self.lines = []
+        self.lineno = 0
+        self.selected_lineno = 0
+        self.search_txt = ''
+        self.mode = 'SEARCH'
+        self.do_print = False
+        self.do_debug = False
+        self.last_lines = []
+        self.win = None
+        self.last_search_text = ''
+        self.last_lines = []
+        self.index = None
+
+        self.keys = {
+            10: self.key_ENTER,
+            13: self.key_ENTER,
+            curses.KEY_ENTER: self.key_ENTER,
+            curses.KEY_F2: self.key_F2,
+            127: self.key_BACKSPACE,
+            curses.KEY_F5: self.key_F5,
+            #
+            curses.KEY_UP: self.key_UP,
+            curses.KEY_DOWN: self.key_DOWN,
+            curses.KEY_PPAGE: self.key_PPAGE,
+            curses.KEY_NPAGE: self.key_NPAGE,
+            27: self.key_ESC
+        }
 
     def load_lines(self):
-        self.lines = []
+        self.lines = self.loader.load()
+        for n in self.lines:
+            self.index.add(n)
 
+    def get_max_viewport(self):
+        max_y, max_x = self.win.getmaxyx()
+        return (max_y - 3, max_x)
 
+    def print_line(self, line, highlight=False):
+        """A thin wrapper around curses's addstr()."""
+        try:
+            if highlight:
+                line += " " * (self.win.getmaxyx()[1] - len(line))
+                self.win.addstr(self.lineno, 0, line, curses.color_pair(1))
+            else:
+                self.win.addstr(self.lineno, 0, line, 0)
+        except curses.error:
+            self.lineno = 0
+            self.win.refresh()
+            raise
+        else:
+            self.lineno += 1
+
+    def print_header(self, title):
+        self.print_line("> %s" % title)
+
+    def print_footer(self, s):
+        y, x = self.win.getmaxyx()
+        self.win.addstr(y-1, 0, s.ljust(x), curses.color_pair(1))
+
+    def which_lines(self, txt):
+        if not txt:
+            max_y, max_x = self.get_max_viewport()
+            return [(0, n) for n in self.last_lines[0:max_y]]
+        if self.last_search_text == txt:
+            return self.last_lines
+        self.last_search_text = txt
+        import time
+        t1 = time.time()
+        ret = self.index.find(txt)
+
+        logger.debug(">>> %s", time.time() - t1)
+
+        t1 = time.time()
+        ret = sorted(ret, key=itemgetter(0), reverse=True)
+        logger.debug(">>> sort >>> %s", time.time() - t1)
+        self.last_lines = ret
+        return ret
+
+    def refresh_window(self, pressed_key=None):
+        self.lineno = 0
+        if pressed_key:
+            self.search_txt += pressed_key
+
+        # curses.endwin()
+        self.win.erase()
+
+        self.print_header(self.search_txt)
+
+        lines = self.which_lines(self.search_txt)
+
+        if not lines:
+            self.print_line("Results [%s]" % self.index.size(), highlight=True)
+            return
+        else:
+            self.print_line("Results - [%s]" % len(lines), highlight=True)
+
+        max_y, max_x = self.get_max_viewport()
+        for i, p in enumerate(lines[0:max_y]):
+            selected = self.selected_lineno == i
+            try:
+                if self.do_debug:
+                    line = "> (%s) %s" % p
+                else:
+                    line = "> %s" % p[1]
+            except:
+                logger.exception("exception in adding line %s", p)
+            else:
+                try:
+                    self.print_line(line, highlight=selected)
+                except curses.error:
+                    break
+        try:
+            s = 'type something to search | [F5] copy | [F6] edit | [ENTER] run | [ESC] quit'
+            self.print_footer("[%s] %s" % (self.mode, s))
+        except curses.error:
+            pass
+        self.win.refresh()
+
+    def key_ENTER(self):
+        line = self.last_lines[self.selected_lineno][1]
+        if args.eval:
+            if args.separator in args.eval:
+                line = args.eval.replace(args.separator, line)
+            else:
+                line = "%s %s" % (args.eval, line)
+        f = open(args.out, 'w')
+        f.write(line)
+        f.close()
+        raise QuitException()
+
+    def key_F2(self):
+        self.do_print = True
+        raise QuitException()
+
+    def key_BACKSPACE(self):
+        if self.search_txt:
+            self.search_txt = self.search_txt[0:-1]
+        self.refresh_window()
+
+    def key_F5(self):
+        logger.info("selected - %s %s",  self.selected_lineno, self.last_lines[self.selected_lineno])
+        pyperclip.copy(self.last_lines[self.selected_lineno][1])
+        raise QuitException()
+
+    def key_UP(self):
+        if self.selected_lineno >= 1:
+            self.selected_lineno -= 1
+        self.refresh_window()
+
+    def key_DOWN(self):
+        max_y, max_x = self.get_max_viewport()
+
+        if self.selected_lineno < max_y - 1:
+            self.selected_lineno += 1
+        self.refresh_window()
+
+    def key_PPAGE(self):
+        if self.selected_lineno - 10 >= 0:
+            self.selected_lineno -= 10
+        self.refresh_window()
+
+    def key_NPAGE(self):
+        max_y, max_x = self.get_max_viewport()
+
+        if self.selected_lineno + 10 <= max_y:
+            self.selected_lineno += 10
+        self.refresh_window()
+
+    def key_ESC(self):
+        raise QuitException
+
+    def key_pressed(self, char):
+        """
+        this is our main dispatcher
+        """
+        if char in self.keys:
+            self.keys[char]()
+        else:
+            try:
+                self.refresh_window(chr(char))
+            except ValueError:
+                logger.exception("couldnt encode %s", char)
+
+class QuitException(Exception):
+    pass
 
 def main():
-    global selected_lineno, search_txt, win, last_lines, mode, do_print, do_debug
+    shorter_esc_delay()
+    index = Index()
+
+    picker = Picker()
+    picker.index = index
 
     if args.debug:
-        do_debug = True
+        picker.do_debug = True
 
     if not sys.stdin.isatty():
         while True:
             stdin_line = sys.stdin.readline()
-            index.add(stdin_line)
+            picker.index.add(stdin_line)
             if not stdin_line:
                 break
     else:
         if args.input:
-            load_file(args.input)
+            file_loader = FileLoader(args.input)
+            picker.loader = file_loader
+            picker.load_lines()
         else:
-            load_history()
-    f=open("/dev/tty")
+            history_loader = HistoryLoader()
+            picker.loader = history_loader
+            picker.load_lines()
+
+    f = open("/dev/tty")
     os.dup2(f.fileno(), 0)
 
-    win = curses.initscr()
+    picker.win = curses.initscr()
     curses.start_color()
 
     curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLUE)
-    win.timeout(-1)
-    win.keypad(1)
-    # curses.endwin()
+    picker.win.timeout(-1)
+    picker.win.keypad(1)
 
-    max_y, max_x = get_max_viewport()
+    max_y, max_x = picker.get_max_viewport()
 
-    last_lines = index.last_lines[0:max_y]
-    logger.debug("lastlines %s", last_lines)
+    picker.last_lines = picker.index.last_lines[0:max_y]
+    logger.debug("lastlines %s", picker.last_lines)
 
     try:
-        logger.debug("colors: %s", curses.COLORS)
-        refresh_window("")
+        picker.refresh_window("")
 
         while True:
-            char = win.getch()
-            max_y, max_x = get_max_viewport()
-
-            if mode == 'SEARCH':
-                if char in (27, curses.KEY_UP, curses.KEY_DOWN, 
-                                curses.KEY_PPAGE, curses.KEY_NPAGE):
-                    mode = 'SELECT'
-                    refresh_window()
-                elif char == curses.KEY_ENTER or char==10 or char==13: # linefeed, enter carriage return all same imho
-                    mode = 'SEARCH'
-                    refresh_window()
-                elif char == 127:
-                    if search_txt:
-                        search_txt = search_txt[0:-1]
-                    refresh_window()
-                else:
-                    try:
-                        refresh_window(chr(char))
-                    except ValueError:
-                        print ">>> couldnt encode", char
-
-            elif mode == 'SELECT':
-                if char == 27:
-                    mode = 'SEARCH'
-                    refresh_window()
-                elif char == curses.KEY_ENTER or char==10 or char==13: # linefeed, enter carriage return all same imho
-                    line = last_lines[selected_lineno][1]
-                    f = open(args.out, 'w')
-                    f.write(line)
-                    f.close()
-                    break
-                elif char == ord('e'):
-                    mode = 'SEARCH'
-                    refresh_window()
-                elif char == ord('q'):
-                    break
-                elif char == ord('s'):
-                    do_print = True
-                    break
-                elif char == ord('c'):
-                    logger.info("selected - %s %s",  selected_lineno, last_lines[selected_lineno])
-                    pyperclip.copy(last_lines[selected_lineno][1])
-                    break
-                elif char == curses.KEY_ENTER or char==10 or char==13: # linefeed, enter carriage return all same imho
-                    pass
-                elif char == 127:
-                    if search_txt:
-                        search_txt = search_txt[0:-1]
-                    refresh_window()
-                elif char == curses.KEY_UP:
-                    if selected_lineno >= 1:
-                        selected_lineno -= 1
-                    refresh_window()
-                elif char == curses.KEY_DOWN:
-                    if selected_lineno < max_y - 1:
-                        selected_lineno += 1
-                    refresh_window()
-                elif char == curses.KEY_PPAGE:
-                    if selected_lineno - 10 >= 0:
-                        selected_lineno -= 10
-                    refresh_window()
-                elif char == curses.KEY_NPAGE:
-                    if selected_lineno + 10 <= max_y:
-                        selected_lineno += 10
-                    refresh_window()
-            else:
-                break
-    except (KeyboardInterrupt, SystemExit):
+            char = picker.win.getch()
+            picker.key_pressed(char)
+    except (KeyboardInterrupt, SystemExit, QuitException):
         pass
     finally:
-        win.keypad(0)
+        picker.win.keypad(0)
         curses.nocbreak()
         curses.echo()
         curses.endwin()
-        if do_print:
-            print last_lines[selected_lineno][1]
+        if picker.do_print:
+            print picker.last_lines[picker.selected_lineno][1]
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -307,6 +334,11 @@ if __name__ == '__main__':
                     help="debug mode - shows scores etc.")
     parser.add_argument("-i", "--input",
                     help="input file")
+    parser.add_argument("-e", "--eval",
+                    help="evaluate command output")
+    parser.add_argument("-I", "--separator",
+                        default='{}',
+                        help="seperator in eval")
     args = parser.parse_args()
 
     if args.debug:

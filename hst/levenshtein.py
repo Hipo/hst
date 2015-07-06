@@ -192,17 +192,19 @@ class Matcher(object):
     else:
       return None
 
+import re
+r = re.compile("[a-zA-Z0-9]+")
+
 def tokenize(s):
-    import re
-    t = s.lower().decode('utf-8')
-    l = re.compile("(?<!^)\s+(?=[A-Z])(?!.\s)").split(t)
+    l = r.findall(s)
     return l
 
 if __name__ == '__main__':
     print tokenize("ssh -i app1.moment.com -- echo 'hello world'")
     words = set()
     for line in open('history.txt').readlines():
-        ws = line.strip().lower().decode('utf-8').split(' ')
+        s = line.strip().lower().decode('utf-8')
+        ws = tokenize(s)
         for w in ws:
             words.add(w)
     words = list(words)
