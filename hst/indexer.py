@@ -20,7 +20,7 @@ class Index(object):
                 self.most_seen = existing.seen
         else:
             self.lines[line] = Line(line, seen=0)
-            self.last_lines.append(line)
+            self.last_lines.append((0, line))
 
 
     def size(self):

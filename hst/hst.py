@@ -10,7 +10,6 @@ from indexer import Index
 import logging
 import os
 import sys
-import pyperclip
 import argparse
 
 logger = logging.getLogger(__name__)
@@ -31,7 +30,7 @@ class HistoryLoader(Loader):
         ret = []
         for line in lines:
             try:
-                l = ' '.join(line.split(' ')[1:])
+                l = ' '.join(line.strip().split(' ')[1:])
                 l = unicode(l, encoding='utf8')
                 ret.append(l)
             except:
@@ -101,7 +100,10 @@ class Picker(object):
             13: self.key_ENTER,
             curses.KEY_ENTER: self.key_ENTER,
             curses.KEY_F2: self.key_F2,
+            # 127 is delete key on macs
             127: self.key_BACKSPACE,
+            # delete char in
+            curses.KEY_BACKSPACE: self.key_BACKSPACE,
             curses.KEY_F5: self.key_F5,
             #
             curses.KEY_UP: self.key_UP,
@@ -145,19 +147,21 @@ class Picker(object):
     def which_lines(self, txt):
         if not txt:
             max_y, max_x = self.get_max_viewport()
-            return [(0, n) for n in self.last_lines[0:max_y]]
+            return [n for n in self.last_lines[0:max_y]]
+
         if self.last_search_text == txt:
             return self.last_lines
         self.last_search_text = txt
+
         import time
         t1 = time.time()
         ret = self.index.find(txt)
 
-        logger.debug(">>> %s", time.time() - t1)
+        logger.debug("search took: %s", time.time() - t1)
 
         t1 = time.time()
         ret = sorted(ret, key=itemgetter(0), reverse=True)
-        logger.debug(">>> sort >>> %s", time.time() - t1)
+        logger.debug("sort took: %s", time.time() - t1)
         self.last_lines = ret
         return ret
 
@@ -202,12 +206,22 @@ class Picker(object):
         self.win.refresh()
 
     def key_ENTER(self):
+        logger.debug("selected_lineno: %s", self.selected_lineno)
         line = self.last_lines[self.selected_lineno][1]
+        logger.debug("selected line: %s", line)
+        line = line.strip()
         if args.eval:
             if args.separator in args.eval:
                 line = args.eval.replace(args.separator, line)
+
+                try:
+                    logger.debug("executing: %s", line)
+                except:
+                    logger.exception("exc. in line")
+
             else:
                 line = "%s %s" % (args.eval, line)
+
         f = open(args.out, 'w')
         f.write(line)
         f.close()
@@ -224,6 +238,7 @@ class Picker(object):
 
     def key_F5(self):
         logger.info("selected - %s %s",  self.selected_lineno, self.last_lines[self.selected_lineno])
+        import pyperclip
         pyperclip.copy(self.last_lines[self.selected_lineno][1])
         raise QuitException()
 
@@ -258,6 +273,7 @@ class Picker(object):
         """
         this is our main dispatcher
         """
+        # logger.debug("char", char)
         if char in self.keys:
             self.keys[char]()
         else:
@@ -339,11 +355,14 @@ if __name__ == '__main__':
     parser.add_argument("-I", "--separator",
                         default='{}',
                         help="seperator in eval")
+    parser.add_argument("-l", "--logfile",
+                        default='hst.log',
+                        help="where to put log file in debug mode")
     args = parser.parse_args()
 
     if args.debug:
         logger.setLevel(logging.DEBUG)
-        hdlr = logging.FileHandler('hst.log')
+        hdlr = logging.FileHandler(args.logfile)
         logger.addHandler(hdlr)
     else:
         logger.setLevel(logging.CRITICAL)

@@ -13,9 +13,15 @@ while [ -h "$SOURCE" ]; do
   [[ $SOURCE != /* ]] && SOURCE="$BASEDIR/$SOURCE"
 done
 BASEDIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+# if its installed globally we cant use e relative path to this script so
+# we use python
+PYTHON=$BASEDIR/python
+if [ ! -f "$PYTHON" ]; then
+PYTHON="python"
+fi
 
-hstpy="$($BASEDIR/python -c 'from hst import hst; print hst.__file__.replace(".pyc", ".py")')"
-$BASEDIR/python $hstpy --out=$f "$@"
+hstpy="$($PYTHON -c 'from hst import hst; print hst.__file__.replace(".pyc", ".py")')"
+$PYTHON $hstpy --out=$f "$@"
 if [[ $? != 0 ]]; then exit $?; fi
 if [ -f "$f" ]
 then

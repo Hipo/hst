@@ -2,8 +2,8 @@
 
 from setuptools import setup, find_packages
 
-VERSION = '0.1'
-DESCRIPTION = 'history picker in ncurses - also can pick other things'
+VERSION = '0.1.2'
+DESCRIPTION = 'history search & picker in ncurses - also can pick other things'
 
 setup(
     name='hst',
