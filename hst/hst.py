@@ -12,6 +12,9 @@ import os
 import sys
 import argparse
 
+import locale
+locale.setlocale(locale.LC_ALL,"")
+
 logger = logging.getLogger(__name__)
 
 class Loader(object):
@@ -85,7 +88,7 @@ class Picker(object):
         self.lines = []
         self.lineno = 0
         self.selected_lineno = 0
-        self.search_txt = ''
+        self.search_txt = u''
         self.mode = 'SEARCH'
         self.do_print = False
         self.do_debug = False
@@ -94,6 +97,7 @@ class Picker(object):
         self.last_search_text = ''
         self.last_lines = []
         self.index = None
+        self.buf = ''
 
         self.keys = {
             10: self.key_ENTER,
@@ -125,11 +129,16 @@ class Picker(object):
     def print_line(self, line, highlight=False):
         """A thin wrapper around curses's addstr()."""
         try:
-            if highlight:
-                line += " " * (self.win.getmaxyx()[1] - len(line))
-                self.win.addstr(self.lineno, 0, line, curses.color_pair(1))
-            else:
-                self.win.addstr(self.lineno, 0, line, 0)
+            try:
+                line = line.encode('utf-8')
+                if highlight:
+                    line += " " * (self.win.getmaxyx()[1] - len(line))
+                    self.win.addstr(self.lineno, 0, line, curses.color_pair(1))
+                else:
+                    self.win.addstr(self.lineno, 0, line, 0)
+            except UnicodeEncodeError as e:
+                self.win.addstr(self.lineno, 0, 'x', 0)
+
         except curses.error:
             self.lineno = 0
             self.win.refresh()
@@ -179,7 +188,6 @@ class Picker(object):
 
         if not lines:
             self.print_line("Results [%s]" % self.index.size(), highlight=True)
-            return
         else:
             self.print_line("Results - [%s]" % len(lines), highlight=True)
 
@@ -188,9 +196,9 @@ class Picker(object):
             selected = self.selected_lineno == i
             try:
                 if self.do_debug:
-                    line = "> (%s) %s" % p
+                    line = u"> (%s) %s" % p
                 else:
-                    line = "> %s" % p[1]
+                    line = u"> %s" % p[1]
             except:
                 logger.exception("exception in adding line %s", p)
             else:
@@ -201,7 +209,7 @@ class Picker(object):
         try:
             s = 'type something to search | [F5] copy | [F6] edit | [ENTER] run | [ESC] quit'
             self.print_footer("[%s] %s" % (self.mode, s))
-        except curses.error:
+        except curses.error as e:
             pass
         self.win.refresh()
 
@@ -223,7 +231,7 @@ class Picker(object):
                 line = "%s %s" % (args.eval, line)
 
         f = open(args.out, 'w')
-        f.write(line)
+        f.write(line.encode('utf8'))
         f.close()
         raise QuitException()
 
@@ -277,10 +285,46 @@ class Picker(object):
         if char in self.keys:
             self.keys[char]()
         else:
+            # UTF-8 input
+            c = char
+            if c & 0x80:
+                f = c << 1
+                while f & 0x80:
+                    f <<= 1
+                    c <<= 8
+                    logger.debug("get next char - %s", c)
+                    c += (self.win.getch() & 0xff)
+                    logger.debug("done %s", c)
+            c = utf2ucs(c)
+
             try:
-                self.refresh_window(chr(char))
+                self.refresh_window(c)
             except ValueError:
                 logger.exception("couldnt encode %s", char)
+
+
+def utf2ucs(utf):
+    if utf & 0x80:
+        # multibyte
+        buf = []
+        while not(utf & 0x40):
+            buf.append(utf & 0x3f)
+            utf >>= 8
+        buf.append(utf & (0x3f >> len(buf)))
+        ucs = 0
+        while buf != []:
+            ucs <<= 6
+            ucs += buf.pop()
+    else:
+        # ascii
+        ucs = utf
+    return unichr(ucs)
+
+def isprintable(c):
+    if 0x20 <= ord(c) <= 0x7e:
+        return True
+    else:
+        return False
 
 class QuitException(Exception):
     pass
@@ -315,6 +359,7 @@ def main():
     os.dup2(f.fileno(), 0)
 
     picker.win = curses.initscr()
+    curses.noecho()
     curses.start_color()
 
     curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLUE)

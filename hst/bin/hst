@@ -16,8 +16,18 @@ BASEDIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 # if its installed globally we cant use e relative path to this script so
 # we use python
 PYTHON=$BASEDIR/python
+
 if [ ! -f "$PYTHON" ]; then
-PYTHON="python"
+    PYTHON="python"
+    # if we are under virtualenv and hst is installed in system libraries,
+    # we need to use systems python.
+    if [ ! -z "$VIRTUAL_ENV" ]; then
+        # echo "in virtual env but hst is installed globally"
+        # hoping this is the correct python
+        PYTHON="$(which -a python | tail -n 1)"
+        # echo $PYTHON
+    fi
+
 fi
 
 hstpy="$($PYTHON -c 'from hst import hst; print hst.__file__.replace(".pyc", ".py")')"
