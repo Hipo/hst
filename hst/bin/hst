@@ -1,4 +1,18 @@
-#!/bin/bash
+#!/bin/sh
+
+pipe=0
+
+for i in "$@"
+do
+case $i in
+    -p|--pipe-output)
+    pipe=1
+    exit 0
+    ;;
+esac
+done
+
+
 f="/tmp/$$-command.hst"
 # we install via pip so the python we use is, resolve $SOURCE until the file is no longer a symlink
 # so one can symlink to /usr/local/bin etc...
@@ -13,28 +27,20 @@ while [ -h "$SOURCE" ]; do
   [[ $SOURCE != /* ]] && SOURCE="$BASEDIR/$SOURCE"
 done
 BASEDIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
-# if its installed globally we cant use e relative path to this script so
-# we use python
-PYTHON=$BASEDIR/python
 
-if [ ! -f "$PYTHON" ]; then
-    PYTHON="python"
-    # if we are under virtualenv and hst is installed in system libraries,
-    # we need to use systems python.
-    if [ ! -z "$VIRTUAL_ENV" ]; then
-        # echo "in virtual env but hst is installed globally"
-        # hoping this is the correct python
-        PYTHON="$(which -a python | tail -n 1)"
-        # echo $PYTHON
-    fi
+hstpy="$($BASEDIR/python -c 'from hst import hst; print hst.__file__.replace(".pyc", ".py")')"
 
-fi
+$BASEDIR/python $hstpy --out=$f "$@" 3>&1 1>&2
 
-hstpy="$($PYTHON -c 'from hst import hst; print hst.__file__.replace(".pyc", ".py")')"
-$PYTHON $hstpy --out=$f "$@"
 if [[ $? != 0 ]]; then exit $?; fi
 if [ -f "$f" ]
 then
-    #cat $f
-    $SHELL -i $f < /dev/tty
+    if [[ $pipe eq "1" ]]; then
+      cat $f
+    fi
+    # echo "adding to history"
+    # HISTFILE=~/.bash_history
+    # set -o history
+    # history -s $f
+    # $SHELL -i $f < /dev/tty
 fi

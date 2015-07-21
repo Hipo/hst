@@ -397,6 +397,8 @@ if __name__ == '__main__':
                     help="input file")
     parser.add_argument("-e", "--eval",
                     help="evaluate command output")
+    parser.add_argument("-p", "--pipe-out", action='store_true',
+                    help="just echo the selected command, useful for pipe out")
     parser.add_argument("-I", "--separator",
                         default='{}',
                         help="seperator in eval")
