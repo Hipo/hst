@@ -27,20 +27,17 @@ while [ -h "$SOURCE" ]; do
   [[ $SOURCE != /* ]] && SOURCE="$BASEDIR/$SOURCE"
 done
 BASEDIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+PYTHON=`which python`
+hstpy="$($PYTHON -c 'from hst import hst; print hst.__file__.replace(".pyc", ".py")')"
 
-hstpy="$($BASEDIR/python -c 'from hst import hst; print hst.__file__.replace(".pyc", ".py")')"
-
-$BASEDIR/python $hstpy --out=$f "$@" 3>&1 1>&2
+$PYTHON $hstpy --out=$f "$@" 3>&1 1>&2
 
 if [[ $? != 0 ]]; then exit $?; fi
 if [ -f "$f" ]
 then
-    if [[ $pipe eq "1" ]]; then
+    if [[ $pipe == "1" ]]; then
       cat $f
+    else
+      $SHELL -i $f < /dev/tty
     fi
-    # echo "adding to history"
-    # HISTFILE=~/.bash_history
-    # set -o history
-    # history -s $f
-    # $SHELL -i $f < /dev/tty
 fi
