@@ -24,7 +24,6 @@ class Loader(object):
 class HistoryLoader(Loader):
     def load(self):
         from subprocess import Popen, PIPE, STDOUT
-        #shell_command = 'bash -i -c "history -r; history"'
         shell_command = 'bash -i -c "unset HISTTIMEFORMAT; history -r; history"'
         event = Popen(shell_command, shell=True, stdin=PIPE, stdout=PIPE,
             stderr=STDOUT)
