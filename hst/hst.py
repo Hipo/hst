@@ -95,7 +95,6 @@ class Picker(object):
         self.last_lines = []
         self.win = None
         self.last_search_text = ''
-        self.last_lines = []
         self.index = None
         self.buf = ''
 
@@ -241,6 +240,7 @@ class Picker(object):
 
     def key_BACKSPACE(self):
         if self.search_txt:
+            self.selected_lineno = 0
             self.search_txt = self.search_txt[0:-1]
         self.refresh_window()
 
@@ -298,6 +298,7 @@ class Picker(object):
             c = utf2ucs(c)
 
             try:
+                self.selected_lineno = 0
                 self.refresh_window(c)
             except ValueError:
                 logger.exception("couldnt encode %s", char)
