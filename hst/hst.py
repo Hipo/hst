@@ -256,9 +256,7 @@ class Picker(object):
         self.refresh_window()
 
     def key_DOWN(self):
-        max_y, max_x = self.get_max_viewport()
-
-        if self.selected_lineno < max_y - 1:
+        if self.selected_lineno < len(self.which_lines(self.search_txt)) - 1:
             self.selected_lineno += 1
         self.refresh_window()
 
