@@ -95,7 +95,6 @@ class Picker(object):
         self.last_lines = []
         self.win = None
         self.last_search_text = ''
-        self.last_lines = []
         self.index = None
         self.buf = ''
 
@@ -192,6 +191,10 @@ class Picker(object):
             self.print_line("Results - [%s]" % len(lines), highlight=True)
 
         max_y, max_x = self.get_max_viewport()
+
+        if self.selected_lineno > len(self.which_lines(self.search_txt)) - 1:
+            self.selected_lineno = len(self.which_lines(self.search_txt)) - 1
+
         for i, p in enumerate(lines[0:max_y]):
             selected = self.selected_lineno == i
             try:
