@@ -191,6 +191,10 @@ class Picker(object):
             self.print_line("Results - [%s]" % len(lines), highlight=True)
 
         max_y, max_x = self.get_max_viewport()
+
+        if self.selected_lineno > len(self.which_lines(self.search_txt)) - 1:
+            self.selected_lineno = len(self.which_lines(self.search_txt)) - 1
+
         for i, p in enumerate(lines[0:max_y]):
             selected = self.selected_lineno == i
             try:
@@ -240,7 +244,6 @@ class Picker(object):
 
     def key_BACKSPACE(self):
         if self.search_txt:
-            self.selected_lineno = 0
             self.search_txt = self.search_txt[0:-1]
         self.refresh_window()
 
@@ -256,7 +259,9 @@ class Picker(object):
         self.refresh_window()
 
     def key_DOWN(self):
-        if self.selected_lineno < len(self.which_lines(self.search_txt)) - 1:
+        max_y, max_x = self.get_max_viewport()
+
+        if self.selected_lineno < max_y - 1:
             self.selected_lineno += 1
         self.refresh_window()
 
@@ -296,7 +301,6 @@ class Picker(object):
             c = utf2ucs(c)
 
             try:
-                self.selected_lineno = 0
                 self.refresh_window(c)
             except ValueError:
                 logger.exception("couldnt encode %s", char)
