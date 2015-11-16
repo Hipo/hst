@@ -218,7 +218,11 @@ class Picker(object):
 
     def key_ENTER(self):
         logger.debug("selected_lineno: %s", self.selected_lineno)
-        line = self.last_lines[self.selected_lineno][1]
+        try:
+            line = self.last_lines[self.selected_lineno][1]
+        except IndexError:
+            raise QuitException()
+
         logger.debug("selected line: %s", line)
         line = line.strip()
         if args.eval:
