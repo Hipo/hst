@@ -32,13 +32,12 @@ class HistoryLoader(Loader):
         lines = output[0].split('\n')
         ret = []
         for line in lines:
+            l = ' '.join(line.strip().split(' ')[1:])
             try:
-                l = ' '.join(line.strip().split(' ')[1:])
                 l = unicode(l, encoding='utf8')
-                ret.append(l)
             except:
-                print ">>>", line
-                raise
+                pass
+            ret.append(l)
         return ret
 
 class FileLoader(Loader):
@@ -50,13 +49,12 @@ class FileLoader(Loader):
         lines = f.readlines()
         ret = []
         for line in lines:
+            l = ' '.join(line.strip().split(' ')[1:])
             try:
-                l = ' '.join(line.split(' ')[1:])
                 l = unicode(l, encoding='utf8')
-                ret.append(l)
             except:
-                print ">>>", line
-                raise
+                pass
+            ret.append(l)
         return ret
 
 class LineLoader(object):
@@ -66,13 +64,12 @@ class LineLoader(object):
     def load(self):
         ret = []
         for line in self.lines:
+            l = ' '.join(line.strip().split(' ')[1:])
             try:
-                l = ' '.join(line.split(' ')[1:])
                 l = unicode(l, encoding='utf8')
-                ret.append(l)
             except:
-                print ">>>", line
-                raise
+                pass
+            ret.append(l)
         return ret
 
 
