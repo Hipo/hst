@@ -11,6 +11,8 @@ import logging
 import os
 import sys
 import argparse
+import thread
+import time
 
 import locale
 locale.setlocale(locale.LC_ALL,"")
@@ -81,6 +83,8 @@ def shorter_esc_delay():
 
 class Picker(object):
     def __init__(self, loader=None):
+        self.cursorCHAR = ":"
+        self.position = 0
         self.loader = loader
         self.lines = []
         self.lineno = 0
@@ -107,6 +111,8 @@ class Picker(object):
             curses.KEY_F5: self.key_F5,
             #
             curses.KEY_UP: self.key_UP,
+            curses.KEY_LEFT: self.key_left,
+            curses.KEY_RIGHT: self.key_right,
             curses.KEY_DOWN: self.key_DOWN,
             curses.KEY_PPAGE: self.key_PPAGE,
             curses.KEY_NPAGE: self.key_NPAGE,
@@ -170,15 +176,24 @@ class Picker(object):
         self.last_lines = ret
         return ret
 
+    def put_pipe_as_cursor(self,text):
+        curser_postion = len(text) - self.position
+        return  text[0:curser_postion] + self.cursorCHAR + text[curser_postion:]
+
+
+    def append_after_cursor(self,text,char):
+        curser_postion = len(text) - self.position
+        return  text[0:curser_postion] + char + text[curser_postion:]
+
     def refresh_window(self, pressed_key=None):
         self.lineno = 0
         if pressed_key:
-            self.search_txt += pressed_key
+            self.search_txt = self.append_after_cursor(self.search_txt, pressed_key)
 
         # curses.endwin()
         self.win.erase()
 
-        self.print_header(self.search_txt)
+        self.print_header(self.put_pipe_as_cursor(self.search_txt))
 
         lines = self.which_lines(self.search_txt)
 
@@ -259,6 +274,15 @@ class Picker(object):
             self.selected_lineno -= 1
         self.refresh_window()
 
+    def key_left(self):
+        self.position  += 1
+        self.refresh_window()
+
+
+    def key_right(self):
+        self.position  -= 1
+        self.refresh_window()
+
     def key_DOWN(self):
         max_y, max_x = self.get_max_viewport()
 
@@ -306,6 +330,16 @@ class Picker(object):
             except ValueError:
                 logger.exception("couldnt encode %s", char)
 
+    def cursor_blink(self):
+        while(True):
+            # TODO: make basic math equation
+            if self.cursorCHAR == ":":
+                self.cursorCHAR = " "
+            else:
+                self.cursorCHAR = ":"
+            self.refresh_window()
+            time.sleep(0.5)
+
 
 def utf2ucs(utf):
     if utf & 0x80:
@@ -323,6 +357,10 @@ def utf2ucs(utf):
         # ascii
         ucs = utf
     return unichr(ucs)
+
+
+
+
 
 def isprintable(c):
     if 0x20 <= ord(c) <= 0x7e:
@@ -377,6 +415,7 @@ def main():
 
     try:
         picker.refresh_window("")
+        thread.start_new_thread( picker.cursor_blink,())
 
         while True:
             char = picker.win.getch()
@@ -390,6 +429,10 @@ def main():
         curses.endwin()
         if picker.do_print:
             print picker.last_lines[picker.selected_lineno][1]
+
+
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
