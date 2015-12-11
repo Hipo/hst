@@ -83,6 +83,8 @@ def shorter_esc_delay():
 
 class Picker(object):
     def __init__(self, loader=None):
+        self.multiple_selected = []
+        self.time_to_highlight = False
         self.cursorCHAR = ":"
         self.position = 0
         self.loader = loader
@@ -109,6 +111,7 @@ class Picker(object):
             # delete char in
             curses.KEY_BACKSPACE: self.key_BACKSPACE,
             curses.KEY_F5: self.key_F5,
+            curses.KEY_F6: self.key_F6,
             #
             curses.KEY_UP: self.key_UP,
             curses.KEY_LEFT: self.key_left,
@@ -128,11 +131,14 @@ class Picker(object):
         max_y, max_x = self.win.getmaxyx()
         return (max_y - 3, max_x)
 
-    def print_line(self, line, highlight=False):
+    def print_line(self, line, highlight=False,semi_highlight=False):
         """A thin wrapper around curses's addstr()."""
         try:
             try:
                 line = line.encode('utf-8')
+                if semi_highlight:
+                    highlight =  self.time_to_highlight
+
                 if highlight:
                     line += " " * (self.win.getmaxyx()[1] - len(line))
                     self.win.addstr(self.lineno, 0, line, curses.color_pair(1))
@@ -207,8 +213,10 @@ class Picker(object):
         if self.selected_lineno > len(self.which_lines(self.search_txt)) - 1:
             self.selected_lineno = len(self.which_lines(self.search_txt)) - 1
 
+
         for i, p in enumerate(lines[0:max_y]):
-            selected = self.selected_lineno == i
+            selected = i == self.selected_lineno
+            pending = i in self.multiple_selected
             try:
                 if self.do_debug:
                     line = u"> (%s) %s" % p
@@ -218,11 +226,11 @@ class Picker(object):
                 logger.exception("exception in adding line %s", p)
             else:
                 try:
-                    self.print_line(line, highlight=selected)
+                    self.print_line(line, highlight=selected, semi_highlight=pending)
                 except curses.error:
                     break
         try:
-            s = 'type something to search | [F5] copy | [F6] edit | [ENTER] run | [ESC] quit'
+            s = 'type something to search | [F5] copy | [F6] multiple line | [ENTER] run | [ESC] quit'
             self.print_footer("[%s] %s" % (self.mode, s))
         except curses.error as e:
             pass
@@ -230,13 +238,14 @@ class Picker(object):
 
     def key_ENTER(self):
         logger.debug("selected_lineno: %s", self.selected_lineno)
-        try:
-            line = self.last_lines[self.selected_lineno][1]
-        except IndexError:
-            raise QuitException()
+
+        if self.selected_lineno not in self.multiple_selected:
+            self.multiple_selected.append(self.selected_lineno)
+        line = args.separator.join([self.last_lines[c][1].strip() for c in self.multiple_selected])
 
         logger.debug("selected line: %s", line)
-        line = line.strip()
+
+
         if args.eval:
             if args.separator in args.eval:
                 line = args.eval.replace(args.separator, line)
@@ -269,6 +278,9 @@ class Picker(object):
         import pyperclip
         pyperclip.copy(self.last_lines[self.selected_lineno][1])
         raise QuitException()
+
+    def key_F6(self):
+        self.multiple_selected.append(self.selected_lineno)
 
     def key_UP(self):
         if self.selected_lineno >= 1:
@@ -340,6 +352,8 @@ class Picker(object):
                 self.cursorCHAR = " "
             else:
                 self.cursorCHAR = ":"
+
+            self.time_to_highlight = not self.time_to_highlight
             self.refresh_window()
             time.sleep(0.5)
 
