@@ -480,7 +480,7 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--pipe-out", action='store_true',
                     help="just echo the selected command, useful for pipe out")
     parser.add_argument("-I", "--separator",
-                        default='{}',
+                        default=' ',
                         help="seperator in eval")
     parser.add_argument("-l", "--logfile",
                         default='hst.log',
