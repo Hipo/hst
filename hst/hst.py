@@ -34,12 +34,13 @@ class HistoryLoader(Loader):
         lines = output[0].split('\n')
         ret = []
         for line in lines:
-            l = ' '.join(line.strip().split(' ')[1:])
             try:
+                l = ' '.join(line.strip().split(' ')[1:])
                 l = unicode(l, encoding='utf8')
+                ret.append(l)
             except:
-                pass
-            ret.append(l)
+                print ">>>", line
+                raise
         return ret
 
 class FileLoader(Loader):
@@ -51,12 +52,13 @@ class FileLoader(Loader):
         lines = f.readlines()
         ret = []
         for line in lines:
-            l = ' '.join(line.strip().split(' ')[1:])
             try:
+                l = ' '.join(line.split(' ')[1:])
                 l = unicode(l, encoding='utf8')
+                ret.append(l)
             except:
-                pass
-            ret.append(l)
+                print ">>>", line
+                raise
         return ret
 
 class LineLoader(object):
@@ -66,12 +68,13 @@ class LineLoader(object):
     def load(self):
         ret = []
         for line in self.lines:
-            l = ' '.join(line.strip().split(' ')[1:])
             try:
+                l = ' '.join(line.split(' ')[1:])
                 l = unicode(l, encoding='utf8')
+                ret.append(l)
             except:
-                pass
-            ret.append(l)
+                print ">>>", line
+                raise
         return ret
 
 
@@ -112,6 +115,8 @@ class Picker(object):
             curses.KEY_BACKSPACE: self.key_BACKSPACE,
             curses.KEY_F5: self.key_F5,
             curses.KEY_F6: self.key_F6,
+            curses.KEY_BTAB: self.key_BACKSPACE,
+            ord("\t"): self.key_TAB, # TODO: put real tab here
             #
             curses.KEY_UP: self.key_UP,
             curses.KEY_LEFT: self.key_left,
@@ -136,10 +141,13 @@ class Picker(object):
         try:
             try:
                 line = line.encode('utf-8')
-                if semi_highlight:
-                    highlight =  self.time_to_highlight
-
-                if highlight:
+                if semi_highlight and highlight and self.time_to_highlight:
+                    line += " " * (self.win.getmaxyx()[1] - len(line))
+                    self.win.addstr(self.lineno, 0, line, curses.color_pair(1))
+                elif semi_highlight:
+                    line += " " * (self.win.getmaxyx()[1] - len(line))
+                    self.win.addstr(self.lineno, 0, line, curses.A_STANDOUT)
+                elif highlight:
                     line += " " * (self.win.getmaxyx()[1] - len(line))
                     self.win.addstr(self.lineno, 0, line, curses.color_pair(1))
                 else:
@@ -230,7 +238,7 @@ class Picker(object):
                 except curses.error:
                     break
         try:
-            s = 'type something to search | [F5] copy | [F6] multiple line | [ENTER] run | [ESC] quit'
+            s = 'type something to search | [F5] copy | [F6] multiple | [TAB] complete to current | [ENTER] run | [ESC] quit'
             self.print_footer("[%s] %s" % (self.mode, s))
         except curses.error as e:
             pass
@@ -280,7 +288,15 @@ class Picker(object):
         raise QuitException()
 
     def key_F6(self):
-        self.multiple_selected.append(self.selected_lineno)
+        if self.selected_lineno in self.multiple_selected:
+            self.multiple_selected.remove(self.selected_lineno)
+        else:
+            self.multiple_selected.append(self.selected_lineno)
+
+    def key_TAB(self):
+        self.search_txt = self.last_lines[self.selected_lineno][1].strip()
+        self.position = 0
+        self.refresh_window()
 
     def key_UP(self):
         if self.selected_lineno >= 1:

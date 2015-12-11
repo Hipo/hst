@@ -1,3 +1,4 @@
+
 class Line(object):
     def __init__(self, txt, seen=0):
         self.txt = txt
@@ -31,11 +32,8 @@ class Index(object):
         for k, line in self.lines.iteritems():
             score = 0
             for keyword in keywords:
-                try:
-                    if keyword in line.txt:
-                        score += 1
-                except:
-                    pass
+                if keyword in line.txt:
+                    score += 1
 
             if score > 0:
                 # score += difflib.SequenceMatcher(None, query, line.txt).ratio()
