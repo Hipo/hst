@@ -276,12 +276,14 @@ class Picker(object):
         self.refresh_window()
 
     def key_left(self):
-        self.position  += 1
+        if self.position < len(self.search_txt):
+            self.position  += 1
         self.refresh_window()
 
 
     def key_right(self):
-        self.position  -= 1
+        if self.position > 0:
+            self.position  -= 1
         self.refresh_window()
 
     def key_DOWN(self):
