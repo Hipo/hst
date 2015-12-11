@@ -260,7 +260,8 @@ class Picker(object):
 
     def key_BACKSPACE(self):
         if self.search_txt:
-            self.search_txt = self.search_txt[0:-1]
+            curser_postion = len(self.search_txt) - self.position
+            self.search_txt =  self.search_txt[0:curser_postion-1] +  self.search_txt[curser_postion:]
         self.refresh_window()
 
     def key_F5(self):
