@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import json
 
 import os
 import sys
@@ -86,6 +87,7 @@ def shorter_esc_delay():
 
 class Picker(object):
     def __init__(self, loader=None):
+        self.no_enter_yet = True
         self.multiple_selected = []
         self.time_to_highlight = False
         self.cursorCHAR = ":"
@@ -182,12 +184,18 @@ class Picker(object):
         t1 = time.time()
         ret = self.index.find(txt)
 
+
         logger.debug("search took: %s", time.time() - t1)
 
         t1 = time.time()
         ret = sorted(ret, key=itemgetter(0), reverse=True)
         logger.debug("sort took: %s", time.time() - t1)
-        self.last_lines = ret
+        ms = self.multiple_selected
+        j = json.dumps(self.multiple_selected,indent=4)
+        open("r.txt","w").write(j)
+
+        ret_lines = [l[1] for l in ret]
+        self.last_lines = [[2.0,line] for line in self.multiple_selected if line not in ret_lines] + ret
         return ret
 
     def put_pipe_as_cursor(self,text):
@@ -198,6 +206,11 @@ class Picker(object):
     def append_after_cursor(self,text,char):
         curser_postion = len(text) - self.position
         return  text[0:curser_postion] + char + text[curser_postion:]
+
+    def pick_line(self,lineno = -1):
+        if lineno == -1:
+            lineno = self.selected_lineno
+        return self.last_lines[lineno][1]
 
     def refresh_window(self, pressed_key=None):
         self.lineno = 0
@@ -224,7 +237,7 @@ class Picker(object):
 
         for i, p in enumerate(lines[0:max_y]):
             selected = i == self.selected_lineno
-            pending = i in self.multiple_selected
+            pending = (self.pick_line(i) in self.multiple_selected)
             try:
                 if self.do_debug:
                     line = u"> (%s) %s" % p
@@ -245,11 +258,20 @@ class Picker(object):
         self.win.refresh()
 
     def key_ENTER(self):
-        logger.debug("selected_lineno: %s", self.selected_lineno)
+        line = self.pick_line()
+        self.no_enter_yet = False
+        logger.debug("selected_lineno: %s", line)
 
-        if self.selected_lineno not in self.multiple_selected:
-            self.multiple_selected.append(self.selected_lineno)
-        line = args.separator.join([self.last_lines[c][1].strip() for c in self.multiple_selected])
+        if line not in self.multiple_selected and len(self.multiple_selected) > 1:
+
+            self.win.erase()
+            self.print_header("Do you want to include: %s (y/n)"%line)
+            self.win.refresh()
+            a = self.win.getch()
+            if a in "yY":
+                self.multiple_selected.append(line)
+
+        line = args.separator.join(self.multiple_selected)
 
         logger.debug("selected line: %s", line)
 
@@ -288,10 +310,11 @@ class Picker(object):
         raise QuitException()
 
     def key_F6(self):
-        if self.selected_lineno in self.multiple_selected:
-            self.multiple_selected.remove(self.selected_lineno)
+        line = self.pick_line()
+        if line in self.multiple_selected:
+            self.multiple_selected.remove(line)
         else:
-            self.multiple_selected.append(self.selected_lineno)
+            self.multiple_selected.append(line)
 
     def key_TAB(self):
         self.search_txt = self.last_lines[self.selected_lineno][1].strip()
@@ -363,11 +386,13 @@ class Picker(object):
 
     def cursor_blink(self):
         while(True):
-            # TODO: make basic math equation
             if self.cursorCHAR == ":":
                 self.cursorCHAR = " "
             else:
                 self.cursorCHAR = ":"
+
+            if not self.no_enter_yet:
+                break
 
             self.time_to_highlight = not self.time_to_highlight
             self.refresh_window()
