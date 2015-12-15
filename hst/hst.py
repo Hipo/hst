@@ -91,7 +91,7 @@ class Picker(object):
         self.multiple_selected = []
         self.time_to_highlight = False
         self.cursorCHAR = ":"
-        self.position = 0
+        self.cursor_position = 0
         self.loader = loader
         self.lines = []
         self.lineno = 0
@@ -167,15 +167,15 @@ class Picker(object):
 
     def print_header(self, text,cursor=False):
         if cursor:
-            curser_postion = len(text) - self.position + 2
+            cursor_postion = len(text) - self.cursor_position + 2
             text += " "
         self.print_line("> %s" % text)
         if cursor:
             try:
-                char = text[curser_postion-2]
+                char = text[cursor_postion-2]
             except:
                 char = " "
-            self.win.addstr(self.lineno-1, curser_postion, char, curses.A_STANDOUT)
+            self.win.addstr(self.lineno-1, cursor_postion, char, curses.A_STANDOUT)
 
     def print_footer(self, s):
         y, x = self.win.getmaxyx()
@@ -205,14 +205,10 @@ class Picker(object):
         self.last_lines = [[2.0,line] for line in self.multiple_selected if line not in ret_lines] + ret
         return ret
 
-    def put_pipe_as_cursor(self,text):
-        curser_postion = len(text) - self.position
-        return  text[0:curser_postion] + self.cursorCHAR + text[curser_postion:]
-
 
     def append_after_cursor(self,text,char):
-        curser_postion = len(text) - self.position
-        return  text[0:curser_postion] + char + text[curser_postion:]
+        cursor_postion = len(text) - self.cursor_position
+        return  text[0:cursor_postion] + char + text[cursor_postion:]
 
     def pick_line(self,lineno = -1):
         if lineno == -1:
@@ -309,8 +305,10 @@ class Picker(object):
 
     def key_BACKSPACE(self):
         if self.search_txt:
-            curser_postion = len(self.search_txt) - self.position
-            self.search_txt =  self.search_txt[0:curser_postion-1] +  self.search_txt[curser_postion:]
+            cursor_postion = len(self.search_txt) - self.cursor_position
+            if cursor_postion == 0:
+                return
+            self.search_txt =  self.search_txt[0:cursor_postion-1] +  self.search_txt[cursor_postion:]
         self.refresh_window()
 
     def key_F5(self):
@@ -328,7 +326,7 @@ class Picker(object):
 
     def key_TAB(self):
         self.search_txt = self.last_lines[self.selected_lineno][1].strip()
-        self.position = 0
+        self.cursor_position = 0
         self.refresh_window()
 
     def key_UP(self):
@@ -337,14 +335,14 @@ class Picker(object):
         self.refresh_window()
 
     def key_left(self):
-        if self.position < len(self.search_txt):
-            self.position  += 1
+        if self.cursor_position < len(self.search_txt):
+            self.cursor_position  += 1
         self.refresh_window()
 
 
     def key_right(self):
-        if self.position > 0:
-            self.position  -= 1
+        if self.cursor_position > 0:
+            self.cursor_position  -= 1
         self.refresh_window()
 
     def key_DOWN(self):
