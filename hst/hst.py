@@ -323,6 +323,7 @@ class Picker(object):
             self.multiple_selected.remove(line)
         else:
             self.multiple_selected.append(line)
+        self.key_DOWN()
 
     def key_TAB(self):
         self.search_txt = self.last_lines[self.selected_lineno][1].strip()
