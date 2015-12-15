@@ -142,7 +142,7 @@ class Picker(object):
         """A thin wrapper around curses's addstr()."""
         try:
             try:
-                max_y, max_x = self.win.getmaxyx()
+                max_ousy, max_x = self.win.getmaxyx()
                 line = line.encode('utf-8')[0:max_x]
                 if semi_highlight and highlight and self.time_to_highlight:
                     line += " " * (self.win.getmaxyx()[1] - len(line))
@@ -165,8 +165,17 @@ class Picker(object):
         else:
             self.lineno += 1
 
-    def print_header(self, title):
-        self.print_line("> %s" % title)
+    def print_header(self, text,cursor=False):
+        if cursor:
+            curser_postion = len(text) - self.position + 2
+            text += " "
+        self.print_line("> %s" % text)
+        if cursor:
+            try:
+                char = text[curser_postion-2]
+            except:
+                char = " "
+            self.win.addstr(self.lineno-1, curser_postion, char, curses.A_STANDOUT)
 
     def print_footer(self, s):
         y, x = self.win.getmaxyx()
@@ -218,7 +227,7 @@ class Picker(object):
         # curses.endwin()
         self.win.erase()
 
-        self.print_header(self.put_pipe_as_cursor(self.search_txt))
+        self.print_header(self.search_txt,cursor=True)
 
         lines = self.which_lines(self.search_txt)
 
@@ -386,18 +395,7 @@ class Picker(object):
                 logger.exception("couldnt encode %s", char)
 
     def cursor_blink(self):
-        while(True):
-            if self.cursorCHAR == ":":
-                self.cursorCHAR = " "
-            else:
-                self.cursorCHAR = ":"
-
-            if not self.no_enter_yet:
-                break
-
-            self.time_to_highlight = not self.time_to_highlight
-            self.refresh_window()
-            time.sleep(0.5)
+        pass
 
 
 def utf2ucs(utf):
