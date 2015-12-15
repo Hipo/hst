@@ -172,9 +172,6 @@ class Picker(object):
         self.win.addstr(y-1, 0, s.ljust(x), curses.color_pair(1))
 
     def which_lines(self, txt):
-        if not txt:
-            max_y, max_x = self.get_max_viewport()
-            return [n for n in self.last_lines[0:max_y]]
 
         if self.last_search_text == txt:
             return self.last_lines
