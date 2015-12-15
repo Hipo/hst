@@ -142,7 +142,8 @@ class Picker(object):
         """A thin wrapper around curses's addstr()."""
         try:
             try:
-                line = line.encode('utf-8')
+                max_y, max_x = self.win.getmaxyx()
+                line = line.encode('utf-8')[0:max_x]
                 if semi_highlight and highlight and self.time_to_highlight:
                     line += " " * (self.win.getmaxyx()[1] - len(line))
                     self.win.addstr(self.lineno, 0, line, curses.color_pair(1))
