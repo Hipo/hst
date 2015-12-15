@@ -259,7 +259,7 @@ class Picker(object):
         self.no_enter_yet = False
         logger.debug("selected_lineno: %s", line)
 
-        if line not in self.multiple_selected and len(self.multiple_selected) > 1:
+        if line not in self.multiple_selected and len(self.multiple_selected) > 0:
 
             self.win.erase()
             self.print_header("Do you want to include: %s (y/n)"%line)
@@ -267,6 +267,9 @@ class Picker(object):
             a = self.win.getch()
             if a in "yY":
                 self.multiple_selected.append(line)
+
+        if len(self.multiple_selected) == 0:
+            self.multiple_selected = [line]
 
         line = args.separator.join(self.multiple_selected)
 
