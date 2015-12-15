@@ -268,10 +268,10 @@ class Picker(object):
         if line not in self.multiple_selected and len(self.multiple_selected) > 0:
 
             self.win.erase()
-            self.print_header("Do you want to include: %s (y/n)"%line)
+            self.win.addstr(0, 0, "Do you want to include: `%s` (y/n)"%(line.strip()))
             self.win.refresh()
             a = self.win.getch()
-            if a in "yY":
+            if chr(a) in "yY":
                 self.multiple_selected.append(line)
 
         if len(self.multiple_selected) == 0:
