@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import json
 
 import os
 import sys
@@ -11,6 +12,8 @@ import logging
 import os
 import sys
 import argparse
+import thread
+import time
 
 import locale
 locale.setlocale(locale.LC_ALL,"")
@@ -84,6 +87,11 @@ def shorter_esc_delay():
 
 class Picker(object):
     def __init__(self, loader=None):
+        self.no_enter_yet = True
+        self.multiple_selected = []
+        self.time_to_highlight = False
+        self.cursorCHAR = ":"
+        self.cursor_position = 0
         self.loader = loader
         self.lines = []
         self.lineno = 0
@@ -108,8 +116,13 @@ class Picker(object):
             # delete char in
             curses.KEY_BACKSPACE: self.key_BACKSPACE,
             curses.KEY_F5: self.key_F5,
+            curses.KEY_F6: self.key_F6,
+            curses.KEY_BTAB: self.key_BACKSPACE,
+            ord("\t"): self.key_TAB, # TODO: put real tab here
             #
             curses.KEY_UP: self.key_UP,
+            curses.KEY_LEFT: self.key_left,
+            curses.KEY_RIGHT: self.key_right,
             curses.KEY_DOWN: self.key_DOWN,
             curses.KEY_PPAGE: self.key_PPAGE,
             curses.KEY_NPAGE: self.key_NPAGE,
@@ -125,12 +138,19 @@ class Picker(object):
         max_y, max_x = self.win.getmaxyx()
         return (max_y - 3, max_x)
 
-    def print_line(self, line, highlight=False):
+    def print_line(self, line, highlight=False,semi_highlight=False):
         """A thin wrapper around curses's addstr()."""
         try:
             try:
-                line = line.encode('utf-8')
-                if highlight:
+                max_ousy, max_x = self.win.getmaxyx()
+                line = line.encode('utf-8')[0:max_x]
+                if semi_highlight and highlight and self.time_to_highlight:
+                    line += " " * (self.win.getmaxyx()[1] - len(line))
+                    self.win.addstr(self.lineno, 0, line, curses.color_pair(1))
+                elif semi_highlight:
+                    line += " " * (self.win.getmaxyx()[1] - len(line))
+                    self.win.addstr(self.lineno, 0, line, curses.A_STANDOUT)
+                elif highlight:
                     line += " " * (self.win.getmaxyx()[1] - len(line))
                     self.win.addstr(self.lineno, 0, line, curses.color_pair(1))
                 else:
@@ -145,17 +165,23 @@ class Picker(object):
         else:
             self.lineno += 1
 
-    def print_header(self, title):
-        self.print_line("> %s" % title)
+    def print_header(self, text,cursor=False):
+        if cursor:
+            cursor_postion = len(text) - self.cursor_position + 2
+            text += " "
+        self.print_line("> %s" % text)
+        if cursor:
+            try:
+                char = text[cursor_postion-2]
+            except:
+                char = " "
+            self.win.addstr(self.lineno-1, cursor_postion, char, curses.A_STANDOUT)
 
     def print_footer(self, s):
         y, x = self.win.getmaxyx()
         self.win.addstr(y-1, 0, s.ljust(x), curses.color_pair(1))
 
     def which_lines(self, txt):
-        if not txt:
-            max_y, max_x = self.get_max_viewport()
-            return [n for n in self.last_lines[0:max_y]]
 
         if self.last_search_text == txt:
             return self.last_lines
@@ -165,23 +191,39 @@ class Picker(object):
         t1 = time.time()
         ret = self.index.find(txt)
 
+
         logger.debug("search took: %s", time.time() - t1)
 
         t1 = time.time()
         ret = sorted(ret, key=itemgetter(0), reverse=True)
         logger.debug("sort took: %s", time.time() - t1)
-        self.last_lines = ret
+        ms = self.multiple_selected
+        j = json.dumps(self.multiple_selected,indent=4)
+        open("r.txt","w").write(j)
+
+        ret_lines = [l[1] for l in ret]
+        self.last_lines = [[2.0,line] for line in self.multiple_selected if line not in ret_lines] + ret
         return ret
+
+
+    def append_after_cursor(self,text,char):
+        cursor_postion = len(text) - self.cursor_position
+        return  text[0:cursor_postion] + char + text[cursor_postion:]
+
+    def pick_line(self,lineno = -1):
+        if lineno == -1:
+            lineno = self.selected_lineno
+        return self.last_lines[lineno][1]
 
     def refresh_window(self, pressed_key=None):
         self.lineno = 0
         if pressed_key:
-            self.search_txt += pressed_key
+            self.search_txt = self.append_after_cursor(self.search_txt, pressed_key)
 
         # curses.endwin()
         self.win.erase()
 
-        self.print_header(self.search_txt)
+        self.print_header(self.search_txt,cursor=True)
 
         lines = self.which_lines(self.search_txt)
 
@@ -195,8 +237,10 @@ class Picker(object):
         if self.selected_lineno > len(self.which_lines(self.search_txt)) - 1:
             self.selected_lineno = len(self.which_lines(self.search_txt)) - 1
 
+
         for i, p in enumerate(lines[0:max_y]):
-            selected = self.selected_lineno == i
+            selected = i == self.selected_lineno
+            pending = (self.pick_line(i) in self.multiple_selected)
             try:
                 if self.do_debug:
                     line = u"> (%s) %s" % p
@@ -206,25 +250,38 @@ class Picker(object):
                 logger.exception("exception in adding line %s", p)
             else:
                 try:
-                    self.print_line(line, highlight=selected)
+                    self.print_line(line, highlight=selected, semi_highlight=pending)
                 except curses.error:
                     break
         try:
-            s = 'type something to search | [F5] copy | [F6] edit | [ENTER] run | [ESC] quit'
+            s = 'type something to search | [F5] copy | [F6] multiple | [TAB] complete to current | [ENTER] run | [ESC] quit'
             self.print_footer("[%s] %s" % (self.mode, s))
         except curses.error as e:
             pass
         self.win.refresh()
 
     def key_ENTER(self):
-        logger.debug("selected_lineno: %s", self.selected_lineno)
-        try:
-            line = self.last_lines[self.selected_lineno][1]
-        except IndexError:
-            raise QuitException()
+        line = self.pick_line()
+        self.no_enter_yet = False
+        logger.debug("selected_lineno: %s", line)
+
+        if line not in self.multiple_selected and len(self.multiple_selected) > 0:
+
+            self.win.erase()
+            self.win.addstr(0, 0, "Do you want to include: `%s` (y/n)"%(line.strip()))
+            self.win.refresh()
+            a = self.win.getch()
+            if chr(a) in "yY":
+                self.multiple_selected.append(line)
+
+        if len(self.multiple_selected) == 0:
+            self.multiple_selected = [line]
+
+        line = args.separator.join(self.multiple_selected)
 
         logger.debug("selected line: %s", line)
-        line = line.strip()
+
+
         if args.eval:
             if args.separator in args.eval:
                 line = args.eval.replace(args.separator, line)
@@ -248,7 +305,10 @@ class Picker(object):
 
     def key_BACKSPACE(self):
         if self.search_txt:
-            self.search_txt = self.search_txt[0:-1]
+            cursor_postion = len(self.search_txt) - self.cursor_position
+            if cursor_postion == 0:
+                return
+            self.search_txt =  self.search_txt[0:cursor_postion-1] +  self.search_txt[cursor_postion:]
         self.refresh_window()
 
     def key_F5(self):
@@ -257,9 +317,33 @@ class Picker(object):
         pyperclip.copy(self.last_lines[self.selected_lineno][1])
         raise QuitException()
 
+    def key_F6(self):
+        line = self.pick_line()
+        if line in self.multiple_selected:
+            self.multiple_selected.remove(line)
+        else:
+            self.multiple_selected.append(line)
+        self.key_DOWN()
+
+    def key_TAB(self):
+        self.search_txt = self.last_lines[self.selected_lineno][1].strip()
+        self.cursor_position = 0
+        self.refresh_window()
+
     def key_UP(self):
         if self.selected_lineno >= 1:
             self.selected_lineno -= 1
+        self.refresh_window()
+
+    def key_left(self):
+        if self.cursor_position < len(self.search_txt):
+            self.cursor_position  += 1
+        self.refresh_window()
+
+
+    def key_right(self):
+        if self.cursor_position > 0:
+            self.cursor_position  -= 1
         self.refresh_window()
 
     def key_DOWN(self):
@@ -309,6 +393,9 @@ class Picker(object):
             except ValueError:
                 logger.exception("couldnt encode %s", char)
 
+    def cursor_blink(self):
+        pass
+
 
 def utf2ucs(utf):
     if utf & 0x80:
@@ -326,6 +413,10 @@ def utf2ucs(utf):
         # ascii
         ucs = utf
     return unichr(ucs)
+
+
+
+
 
 def isprintable(c):
     if 0x20 <= ord(c) <= 0x7e:
@@ -380,6 +471,7 @@ def main():
 
     try:
         picker.refresh_window("")
+        thread.start_new_thread( picker.cursor_blink,())
 
         while True:
             char = picker.win.getch()
@@ -394,6 +486,10 @@ def main():
         if picker.do_print:
             print picker.last_lines[picker.selected_lineno][1]
 
+
+
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-o", "--out", type=str,
@@ -407,7 +503,7 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--pipe-out", action='store_true',
                     help="just echo the selected command, useful for pipe out")
     parser.add_argument("-I", "--separator",
-                        default='{}',
+                        default=' ',
                         help="seperator in eval")
     parser.add_argument("-l", "--logfile",
                         default='hst.log',
