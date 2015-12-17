@@ -277,22 +277,12 @@ class Picker(object):
         if len(self.multiple_selected) == 0:
             self.multiple_selected = [line]
 
-        line = args.separator.join(self.multiple_selected)
+        line = args.separator.join([l.strip() for l in self.multiple_selected])
 
         logger.debug("selected line: %s", line)
 
-
         if args.eval:
-            if args.separator in args.eval:
-                line = args.eval.replace(args.separator, line)
-
-                try:
-                    logger.debug("executing: %s", line)
-                except:
-                    logger.exception("exc. in line")
-
-            else:
-                line = "%s %s" % (args.eval, line)
+            line = "%s %s" % (args.eval, line)
 
         f = open(args.out, 'w')
         f.write(line.encode('utf8'))
