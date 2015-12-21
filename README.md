@@ -9,6 +9,9 @@ Though it can search and pick other things as well. Such as git branch | git che
 
 [![asciicast](https://asciinema.org/a/86zjkikdsjcrvvh5i60yt7up4.png)](https://asciinema.org/a/86zjkikdsjcrvvh5i60yt7up4)
 
+You can also use it in multi select mode. Useful for select & copying some files etc. 
+
+[![asciicast](https://asciinema.org/a/96ngad9i84m9ox7pwduhfh4sr.png)](https://asciinema.org/a/96ngad9i84m9ox7pwduhfh4sr)
 
 Install
 ------------------------
@@ -124,9 +127,10 @@ anyways, ymmv with other tools.
 
 Missing Features - TODO's
 ------------------------
-- piping out the selected line doesn't work
+- need some viewport kind of logic, say you hit pagedown, it should scroll down.
+- ~~ piping out the selected line doesn't work ~~
 - can't do fuzzy match eg: "cord" works for "cordova" but not "crd". it takes too long on long list of lines.
-- multiple selection
+- ~~ multiple selection ~~
 - pipe in with scores, eg. boost current branch when piping git branch etc.
 
 How

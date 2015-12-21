@@ -236,12 +236,12 @@ class Picker(object):
 
         self.print_header(self.search_txt, cursor=True)
         logger.debug("======================== refresh window ======================")
-        lines = self.which_lines(self.search_txt)
+        self.which_lines(self.search_txt)
 
-        if not lines:
+        if not self.last_lines:
             self.print_line("Results [%s]" % self.index.size(), highlight=True)
         else:
-            self.print_line("Results - [%s]" % len(lines), highlight=True)
+            self.print_line("Results - [%s]" % len(self.last_lines), highlight=True)
 
         max_y, max_x = self.get_max_viewport()
 
@@ -250,7 +250,8 @@ class Picker(object):
 
         logger.debug("self.multiple selected %s", self.multiple_selected)
 
-        for i, p in enumerate(lines[0:max_y]):
+
+        for i, p in enumerate(self.last_lines[0:max_y]):
             selected = i == self.selected_lineno
             pending = (self.pick_line(i) in self.multiple_selected)
             logger.debug("is pending %s [%s____%s]", pending, self.pick_line(i), self.multiple_selected)
@@ -263,11 +264,11 @@ class Picker(object):
                 logger.exception("exception in adding line %s", p)
             else:
                 try:
-                    self.print_line(line, highlight=selected, semi_highlight=pending)
+                    self.print_line(line.strip(), highlight=selected, semi_highlight=pending)
                 except curses.error:
                     break
         try:
-            s = 'type something to search | [F5] copy | [F6] multiple | [TAB] complete to current | [ENTER] run | [ESC] quit'
+            s = 'type something to search | [F5] copy | [F6] multiple selection | [TAB] complete to current | [ENTER] run | [ESC] quit'
             self.print_footer("[%s] %s" % (self.mode, s))
         except curses.error as e:
             pass
@@ -277,15 +278,6 @@ class Picker(object):
         line = self.pick_line()
         self.no_enter_yet = False
         logger.debug("selected_lineno: %s", line)
-
-        # if line not in self.multiple_selected and len(self.multiple_selected) > 0:
-        #
-        #     self.win.erase()
-        #     self.win.addstr(0, 0, "Do you want to include: `%s` (y/n)"%(line.strip()))
-        #     self.win.refresh()
-        #     a = self.win.getch()
-        #     if chr(a) in "yY":
-        #         self.multiple_selected.append(line)
 
         if len(self.multiple_selected) == 0:
             self.multiple_selected = [line]
@@ -360,6 +352,8 @@ class Picker(object):
     def key_PPAGE(self):
         if self.selected_lineno - 10 >= 0:
             self.selected_lineno -= 10
+        else:
+            self.selected_lineno = 0
         self.refresh_window()
 
     def key_NPAGE(self):
@@ -417,10 +411,6 @@ def utf2ucs(utf):
         # ascii
         ucs = utf
     return unichr(ucs)
-
-
-
-
 
 def isprintable(c):
     if 0x20 <= ord(c) <= 0x7e:
@@ -489,10 +479,6 @@ def main():
         curses.endwin()
         if picker.do_print:
             print picker.last_lines[picker.selected_lineno][1]
-
-
-
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
