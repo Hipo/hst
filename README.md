@@ -128,9 +128,9 @@ anyways, ymmv with other tools.
 Missing Features - TODO's
 ------------------------
 - need some viewport kind of logic, say you hit pagedown, it should scroll down.
-- ~~ piping out the selected line doesn't work ~~
+- ~~piping out the selected line doesn't work~~
 - can't do fuzzy match eg: "cord" works for "cordova" but not "crd". it takes too long on long list of lines.
-- ~~ multiple selection ~~
+- ~~multiple selection~~
 - pipe in with scores, eg. boost current branch when piping git branch etc.
 
 How
