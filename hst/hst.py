@@ -182,7 +182,6 @@ class Picker(object):
         self.win.addstr(y-1, 0, s.ljust(x), curses.color_pair(1))
 
     def which_lines(self, txt):
-
         if self.last_search_text == txt:
             return self.last_lines
         self.last_search_text = txt
@@ -191,28 +190,40 @@ class Picker(object):
         t1 = time.time()
         ret = self.index.find(txt)
 
-
         logger.debug("search took: %s", time.time() - t1)
 
         t1 = time.time()
         ret = sorted(ret, key=itemgetter(0), reverse=True)
         logger.debug("sort took: %s", time.time() - t1)
-        ms = self.multiple_selected
-        j = json.dumps(self.multiple_selected,indent=4)
-        open("r.txt","w").write(j)
 
-        ret_lines = [l[1] for l in ret]
-        self.last_lines = [[2.0,line] for line in self.multiple_selected if line not in ret_lines] + ret
-        return ret
+        if self.multiple_selected:
+            max_y, max_x = self.get_max_viewport()
+            ret_lines = [l[1] for l in ret[0:max_y]]
+            to_remove = []
+            for i, v in enumerate(ret_lines):
+                if v in self.multiple_selected:
+                    to_remove.append(i)
+            if to_remove:
+                r = []
+                for i, l in enumerate(ret):
+                    if i not in to_remove:
+                        r.append(l)
+                ret = r
+            self.last_lines = [[20.0, line] for line in self.multiple_selected] + ret
+        else:
+            self.last_lines = ret
 
+        logger.debug("----->>> returning from which lines [%s]", len(self.last_lines))
+        return self.last_lines
 
     def append_after_cursor(self,text,char):
-        cursor_postion = len(text) - self.cursor_position
-        return  text[0:cursor_postion] + char + text[cursor_postion:]
+        cursor_position = len(text) - self.cursor_position
+        return  text[0:cursor_position] + char + text[cursor_position:]
 
-    def pick_line(self,lineno = -1):
+    def pick_line(self, lineno=-1):
         if lineno == -1:
             lineno = self.selected_lineno
+        logger.debug(">>>> selected line no %s", lineno)
         return self.last_lines[lineno][1]
 
     def refresh_window(self, pressed_key=None):
@@ -223,8 +234,8 @@ class Picker(object):
         # curses.endwin()
         self.win.erase()
 
-        self.print_header(self.search_txt,cursor=True)
-
+        self.print_header(self.search_txt, cursor=True)
+        logger.debug("======================== refresh window ======================")
         lines = self.which_lines(self.search_txt)
 
         if not lines:
@@ -237,15 +248,17 @@ class Picker(object):
         if self.selected_lineno > len(self.which_lines(self.search_txt)) - 1:
             self.selected_lineno = len(self.which_lines(self.search_txt)) - 1
 
+        logger.debug("self.multiple selected %s", self.multiple_selected)
 
         for i, p in enumerate(lines[0:max_y]):
             selected = i == self.selected_lineno
             pending = (self.pick_line(i) in self.multiple_selected)
+            logger.debug("is pending %s [%s____%s]", pending, self.pick_line(i), self.multiple_selected)
             try:
-                if self.do_debug:
-                    line = u"> (%s) %s" % p
+                if pending:
+                    line = u"[x] %s" % p[1]
                 else:
-                    line = u"> %s" % p[1]
+                    line = u"[ ] %s" % p[1]
             except:
                 logger.exception("exception in adding line %s", p)
             else:
@@ -265,14 +278,14 @@ class Picker(object):
         self.no_enter_yet = False
         logger.debug("selected_lineno: %s", line)
 
-        if line not in self.multiple_selected and len(self.multiple_selected) > 0:
-
-            self.win.erase()
-            self.win.addstr(0, 0, "Do you want to include: `%s` (y/n)"%(line.strip()))
-            self.win.refresh()
-            a = self.win.getch()
-            if chr(a) in "yY":
-                self.multiple_selected.append(line)
+        # if line not in self.multiple_selected and len(self.multiple_selected) > 0:
+        #
+        #     self.win.erase()
+        #     self.win.addstr(0, 0, "Do you want to include: `%s` (y/n)"%(line.strip()))
+        #     self.win.refresh()
+        #     a = self.win.getch()
+        #     if chr(a) in "yY":
+        #         self.multiple_selected.append(line)
 
         if len(self.multiple_selected) == 0:
             self.multiple_selected = [line]
@@ -295,10 +308,11 @@ class Picker(object):
 
     def key_BACKSPACE(self):
         if self.search_txt:
-            cursor_postion = len(self.search_txt) - self.cursor_position
-            if cursor_postion == 0:
+            cursor_position = len(self.search_txt) - self.cursor_position
+            if cursor_position == 0:
+                self.refresh_window()
                 return
-            self.search_txt =  self.search_txt[0:cursor_postion-1] +  self.search_txt[cursor_postion:]
+            self.search_txt =  self.search_txt[0:cursor_position-1] +  self.search_txt[cursor_position:]
         self.refresh_window()
 
     def key_F5(self):
@@ -309,6 +323,7 @@ class Picker(object):
 
     def key_F6(self):
         line = self.pick_line()
+        logger.debug("pressed F6 - selected line: %s", line)
         if line in self.multiple_selected:
             self.multiple_selected.remove(line)
         else:
@@ -329,7 +344,6 @@ class Picker(object):
         if self.cursor_position < len(self.search_txt):
             self.cursor_position  += 1
         self.refresh_window()
-
 
     def key_right(self):
         if self.cursor_position > 0:
