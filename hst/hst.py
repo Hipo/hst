@@ -287,7 +287,10 @@ class Picker(object):
         logger.debug("selected line: %s", line)
 
         if args.eval:
-            line = "%s %s" % (args.eval, line)
+            if args.replace:
+                line = args.eval.replace(args.replace, line)
+            else:
+                line = "%s %s" % (args.eval, line)
 
         f = open(args.out, 'w')
         f.write(line.encode('utf8'))
@@ -494,7 +497,12 @@ if __name__ == '__main__':
                     help="just echo the selected command, useful for pipe out")
     parser.add_argument("-I", "--separator",
                         default=' ',
-                        help="seperator in eval")
+                        help="seperator in for multiple selection - ie. to join selected lines with ; etc.")
+
+    parser.add_argument("-r", "--replace",
+                        default=' ',
+                        help="replace with this in eval string. ie. hst -r '__' --eval='cd __ && ls'")
+
     parser.add_argument("-l", "--logfile",
                         default='hst.log',
                         help="where to put log file in debug mode")
