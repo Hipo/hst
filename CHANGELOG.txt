@@ -1,0 +1,6 @@
+version 0.1.9:
+    - fixed pipe out parameter. now one can easily do hst -p | xargs echo
+    - easier to extend now, see: https://github.com/ybrs/assh
+
+version 0.1.8:
+    - added multiline selection
