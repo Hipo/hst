@@ -86,7 +86,7 @@ def shorter_esc_delay():
         os.environ['ESCDELAY'] = '25'
 
 class Picker(object):
-    def __init__(self, loader=None):
+    def __init__(self, loader=None, args=None):
         self.no_enter_yet = True
         self.multiple_selected = []
         self.time_to_highlight = False
@@ -105,6 +105,7 @@ class Picker(object):
         self.last_search_text = ''
         self.index = None
         self.buf = ''
+        self.args = args
 
         self.keys = {
             10: self.key_ENTER,
@@ -282,17 +283,17 @@ class Picker(object):
         if len(self.multiple_selected) == 0:
             self.multiple_selected = [line]
 
-        line = args.separator.join([l.strip() for l in self.multiple_selected])
+        line = self.args.separator.join([l.strip() for l in self.multiple_selected])
 
         logger.debug("selected line: %s", line)
 
-        if args.eval:
-            if args.replace:
-                line = args.eval.replace(args.replace, line)
+        if self.args.eval:
+            if self.args.replace:
+                line = self.args.eval.replace(args.replace, line)
             else:
                 line = "%s %s" % (args.eval, line)
 
-        f = open(args.out, 'w')
+        f = open(self.args.out, 'w')
         f.write(line.encode('utf8'))
         f.close()
         raise QuitException()
@@ -424,11 +425,18 @@ def isprintable(c):
 class QuitException(Exception):
     pass
 
-def main():
+def main(args, loader=None, picker_cls=Picker):
+    """
+
+    :param args: commandline arguments
+    :param loader: loader class
+    :param picker_cls: picker class
+    :return:
+    """
     shorter_esc_delay()
     index = Index()
 
-    picker = Picker()
+    picker = picker_cls(args=args)
     picker.index = index
 
     if args.debug:
@@ -441,7 +449,10 @@ def main():
             if not stdin_line:
                 break
     else:
-        if args.input:
+        if loader:
+            picker.loader = loader
+            picker.load_lines()
+        elif args.input:
             file_loader = FileLoader(args.input)
             picker.loader = file_loader
             picker.load_lines()
@@ -468,8 +479,7 @@ def main():
 
     try:
         picker.refresh_window("")
-        thread.start_new_thread( picker.cursor_blink,())
-
+        # thread.start_new_thread( picker.cursor_blink,())
         while True:
             char = picker.win.getch()
             picker.key_pressed(char)
@@ -514,4 +524,4 @@ if __name__ == '__main__':
         logger.addHandler(hdlr)
     else:
         logger.setLevel(logging.CRITICAL)
-    main()
+    main(args)

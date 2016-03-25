@@ -7,7 +7,6 @@ do
 case $i in
     -p|--pipe-output)
     pipe=1
-    exit 0
     ;;
 esac
 done
