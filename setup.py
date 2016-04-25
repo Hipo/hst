@@ -2,7 +2,7 @@
 
 from setuptools import setup, find_packages
 
-VERSION = '0.1.10'
+VERSION = '0.1.11'
 DESCRIPTION = 'history search & picker in ncurses - also can pick other things'
 
 setup(

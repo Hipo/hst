@@ -26,19 +26,19 @@ while [ -h "$SOURCE" ]; do
 done
 BASEDIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 PYTHON=`which python`
-hstpy="$($PYTHON -c 'from hst import hst; print hst.__file__.replace(".pyc", ".py")' 2>/dev/null)"
-if [ $? -ne 0 ]; then
-  # pass
-  PYTHON="$BASEDIR/python"
-  hstpy="$($PYTHON -c 'from hst import hst; print hst.__file__.replace(".pyc", ".py")' 2>/dev/null)"
-  if [ $? -ne 0 ]; then
-    PYTHON="/usr/bin/python"
-    hstpy="$($PYTHON -c 'from hst import hst; print hst.__file__.replace(".pyc", ".py")' 2>/dev/null)"
-  fi
-fi
+# hstpy="$($PYTHON -c 'from hst import hst; print hst.__file__.replace(".pyc", ".py")' 2>/dev/null)"
+# if [ $? -ne 0 ]; then
+#   # pass
+#   PYTHON="$BASEDIR/python"
+#   hstpy="$($PYTHON -c 'from hst import hst; print hst.__file__.replace(".pyc", ".py")' 2>/dev/null)"
+#   if [ $? -ne 0 ]; then
+#     PYTHON="/usr/bin/python"
+#     hstpy="$($PYTHON -c 'from hst import hst; print hst.__file__.replace(".pyc", ".py")' 2>/dev/null)"
+#   fi
+# fi
 
 
-$PYTHON $hstpy --out=$f "$@" 3>&1 1>&2
+$PYTHON -m hst.hst --out=$f "$@" 3>&1 1>&2
 
 if [[ $? != 0 ]]; then exit $?; fi
 if [ -f "$f" ]
